@@ -1,44 +1,36 @@
-// server.js
-// Основной сервер Node.js + Express для галереи фотографий
-
 const express = require('express');
-const mysql = require('mysql2');
 const session = require('express-session');
 const path = require('path');
+const { Pool } = require('pg');
 
 const app = express();
 
-// ================== НАСТРОЙКИ ==================
+// ===== НАСТРОЙКИ =====
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
 app.use(session({
-  secret: 'secret_key',
+  secret: 'typhoon_secret',
   resave: false,
   saveUninitialized: false
 }));
 
 app.use(express.static(path.join(__dirname, 'public')));
+
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
-// ================== БАЗА ДАННЫХ ==================
-const db = mysql.createConnection({
-  host: 'localhost',
-  user: 'r999926v_typhoon',
-  password: '(-Vegas2026-)',
-  database: 'r999926v_typhoon'
+// ===== БАЗА ДАННЫХ (PostgreSQL для Render) =====
+const db = new Pool({
+  host: process.env.DB_HOST,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME,
+  port: process.env.DB_PORT,
+  ssl: { rejectUnauthorized: false }
 });
 
-db.connect(err => {
-  if (err) {
-    console.error('Ошибка подключения к БД:', err);
-  } else {
-    console.log('MySQL подключена');
-  }
-});
-
-// ================== MIDDLEWARE ==================
+// ===== MIDDLEWARE =====
 function isAuth(req, res, next) {
   if (req.session.user) return next();
   res.redirect('/login');
@@ -49,100 +41,103 @@ function isAdmin(req, res, next) {
   res.send('Доступ запрещён');
 }
 
-// ================== РОУТЫ ==================
-
-// Главная — галерея
-app.get('/', (req, res) => {
-  db.query('SELECT * FROM photos', (err, photos) => {
-    res.render('index', { user: req.session.user, photos });
-  });
+// ===== ГЛАВНАЯ =====
+app.get('/', async (req, res) => {
+  const { rows: photos } = await db.query('SELECT * FROM photos');
+  res.render('index', { user: req.session.user, photos });
 });
 
-// ================== АВТОРИЗАЦИЯ ==================
+// ===== АВТОРИЗАЦИЯ =====
 app.get('/register', (req, res) => res.render('register'));
 app.get('/login', (req, res) => res.render('login'));
 
-app.post('/register', (req, res) => {
+app.post('/register', async (req, res) => {
   const { email, password } = req.body;
-  db.query(
-    'INSERT INTO users (email, password, role) VALUES (?, ?, "user")',
-    [email, password],
-    () => res.redirect('/login')
+  await db.query(
+    'INSERT INTO users (email, password, role) VALUES ($1, $2, $3)',
+    [email, password, 'user']
   );
+  res.redirect('/login');
 });
 
-app.post('/login', (req, res) => {
+app.post('/login', async (req, res) => {
   const { email, password } = req.body;
-  db.query(
-    'SELECT * FROM users WHERE email=? AND password=?',
-    [email, password],
-    (err, results) => {
-      if (results.length > 0) {
-        req.session.user = results[0];
-        res.redirect('/');
-      } else {
-        res.send('Неверные данные');
-      }
-    }
+  const { rows } = await db.query(
+    'SELECT * FROM users WHERE email=$1 AND password=$2',
+    [email, password]
   );
+
+  if (rows.length > 0) {
+    req.session.user = rows[0];
+    res.redirect('/');
+  } else {
+    res.send('Неверные данные');
+  }
 });
 
 app.get('/logout', (req, res) => {
   req.session.destroy(() => res.redirect('/'));
 });
 
-// ================== ЗАКАЗЫ ==================
-app.get('/buy/:id', isAuth, (req, res) => {
-  db.query('SELECT * FROM photos WHERE id=?', [req.params.id], (err, photo) => {
-    res.render('buy', { photo: photo[0] });
-  });
+// ===== ПОКУПКА =====
+app.get('/buy/:id', isAuth, async (req, res) => {
+  const { rows } = await db.query('SELECT * FROM photos WHERE id=$1', [req.params.id]);
+  res.render('buy', { photo: rows[0] });
 });
 
-app.post('/buy/:id', isAuth, (req, res) => {
+app.post('/buy/:id', isAuth, async (req, res) => {
   const { fullname, phone, address } = req.body;
-  db.query(
-    'INSERT INTO orders (user_id, photo_id, fullname, phone, address, status) VALUES (?, ?, ?, ?, ?, "open")',
-    [req.session.user.id, req.params.id, fullname, phone, address],
-    () => res.redirect('/profile')
+  await db.query(
+    `INSERT INTO orders (user_id, photo_id, fullname, phone, address, status)
+     VALUES ($1, $2, $3, $4, $5, 'open')`,
+    [req.session.user.id, req.params.id, fullname, phone, address]
   );
+  res.redirect('/profile');
 });
 
-// ================== ПРОФИЛЬ ==================
-app.get('/profile', isAuth, (req, res) => {
-  db.query(
-    'SELECT orders.*, photos.title FROM orders JOIN photos ON photos.id=orders.photo_id WHERE user_id=?',
-    [req.session.user.id],
-    (err, orders) => res.render('profile', { user: req.session.user, orders })
+// ===== ПРОФИЛЬ =====
+app.get('/profile', isAuth, async (req, res) => {
+  const { rows: orders } = await db.query(
+    `SELECT orders.*, photos.title
+     FROM orders
+     JOIN photos ON photos.id = orders.photo_id
+     WHERE user_id=$1`,
+    [req.session.user.id]
   );
+  res.render('profile', { user: req.session.user, orders });
 });
 
-app.get('/cancel/:id', isAuth, (req, res) => {
-  db.query('DELETE FROM orders WHERE id=? AND user_id=?', [req.params.id, req.session.user.id], () => {
-    res.redirect('/profile');
-  });
+app.get('/cancel/:id', isAuth, async (req, res) => {
+  await db.query(
+    'DELETE FROM orders WHERE id=$1 AND user_id=$2',
+    [req.params.id, req.session.user.id]
+  );
+  res.redirect('/profile');
 });
 
-// ================== АДМИН ==================
-app.get('/admin', isAdmin, (req, res) => {
-  db.query('SELECT * FROM orders', (err, orders) => {
-    res.render('admin', { orders });
-  });
+// ===== АДМИН =====
+app.get('/admin', isAdmin, async (req, res) => {
+  const { rows: orders } = await db.query('SELECT * FROM orders');
+  res.render('admin', { orders });
 });
 
-app.post('/admin/close/:id', isAdmin, (req, res) => {
-  db.query('UPDATE orders SET status="closed" WHERE id=?', [req.params.id], () => {
-    res.redirect('/admin');
-  });
+app.post('/admin/close/:id', isAdmin, async (req, res) => {
+  await db.query(
+    'UPDATE orders SET status=\'closed\' WHERE id=$1',
+    [req.params.id]
+  );
+  res.redirect('/admin');
 });
 
-app.post('/admin/add-photo', isAdmin, (req, res) => {
+app.post('/admin/add-photo', isAdmin, async (req, res) => {
   const { title, price, image_url } = req.body;
-  db.query(
-    'INSERT INTO photos (title, price, image_url) VALUES (?, ?, ?)',
-    [title, price, image_url],
-    () => res.redirect('/admin')
+  await db.query(
+    'INSERT INTO photos (title, price, image_url) VALUES ($1, $2, $3)',
+    [title, price, image_url]
   );
+  res.redirect('/admin');
 });
 
-// ================== СЕРВЕР ==================
-app.listen(3000, () => console.log('Сервер запущен на порту 3000'));
+// ===== ЗАПУСК =====
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log('Typhoon запущен'));
