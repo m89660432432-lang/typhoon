@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Typhoon</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+<header class="header">
+  <h1>Typhoon</h1>
+  <nav>
+    <% if (user) { %>
+      <a href="/profile">Личный кабинет</a>
+      <% if (user.role === 'admin') { %>
+        <a href="/admin">Админ-панель</a>
+      <% } %>
+      <a href="/logout">Выйти</a>
+    <% } else { %>
+      <a href="/login">Вход</a>
+      <a href="/register">Регистрация</a>
+    <% } %>
+  </nav>
+</header>
+
+<main class="gallery">
+  <% photos.forEach(photo => { %>
+    <div class="card">
+      <img src="<%= photo.image_url %>" alt="<%= photo.title %>">
+      <h3><%= photo.title %></h3>
+      <p><%= photo.price %> ₽</p>
+      <a class="buy-btn" href="/buy/<%= photo.id %>">Купить</a>
+    </div>
+  <% }) %>
+</main>
+
+<footer class="footer">
+  <p>Typhoon ©</p>
+  <p>Трофимов М.М.</p>
+  <p>+7 936 ***** 67</p>
+</footer>
+
+</body>
+</html>

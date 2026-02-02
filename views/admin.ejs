@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Админ-панель — Typhoon</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+<header class="header">
+  <h1><a href="/">Typhoon</a></h1>
+  <nav>
+    <a href="/">Главная</a>
+    <a href="/logout">Выйти</a>
+  </nav>
+</header>
+
+<main class="admin-container">
+  <h2>Админ-панель</h2>
+
+  <section class="admin-section">
+    <h3>Добавить фотографию</h3>
+    <form method="POST" action="/admin/add-photo" class="admin-form">
+      <input type="text" name="title" placeholder="Название" required>
+      <input type="number" name="price" placeholder="Цена" required>
+      <input type="text" name="image_url" placeholder="Ссылка на изображение" required>
+      <button type="submit">Добавить</button>
+    </form>
+  </section>
+
+  <section class="admin-section">
+    <h3>Заказы</h3>
+
+    <% if (orders.length === 0) { %>
+      <p>Заказов нет</p>
+    <% } %>
+
+    <% orders.forEach(order => { %>
+      <div class="order-item">
+        <p><strong>ID заказа:</strong> <%= order.id %></p>
+        <p><strong>ID пользователя:</strong> <%= order.user_id %></p>
+        <p><strong>ID фото:</strong> <%= order.photo_id %></p>
+        <p><strong>Статус:</strong> <%= order.status %></p>
+
+        <% if (order.status === 'open') { %>
+          <form method="POST" action="/admin/close/<%= order.id %>">
+            <button class="close-btn" type="submit">Закрыть заказ</button>
+          </form>
+        <% } %>
+      </div>
+    <% }) %>
+  </section>
+</main>
+
+<footer class="footer">
+  <p>Typhoon ©</p>
+  <p>Трофимов М.М.</p>
+  <p>+7 936 ***** 67</p>
+</footer>
+
+</body>
+</html>

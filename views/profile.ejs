@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Личный кабинет — Typhoon</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+<header class="header">
+  <h1><a href="/">Typhoon</a></h1>
+  <nav>
+    <a href="/">Главная</a>
+    <a href="/logout">Выйти</a>
+  </nav>
+</header>
+
+<main class="profile-container">
+  <h2>Личный кабинет</h2>
+
+  <section class="profile-info">
+    <p><strong>Email:</strong> <%= user.email %></p>
+    <p><strong>Роль:</strong> <%= user.role %></p>
+  </section>
+
+  <section class="orders">
+    <h3>Мои заказы</h3>
+
+    <% if (orders.length === 0) { %>
+      <p>Заказов пока нет</p>
+    <% } %>
+
+    <% orders.forEach(order => { %>
+      <div class="order-item">
+        <p><strong>Фото:</strong> <%= order.title %></p>
+        <p><strong>Статус:</strong> <%= order.status %></p>
+        <% if (order.status === 'open') { %>
+          <a class="cancel-btn" href="/cancel/<%= order.id %>">Отменить заказ</a>
+        <% } %>
+      </div>
+    <% }) %>
+  </section>
+</main>
+
+<footer class="footer">
+  <p>Typhoon ©</p>
+  <p>Трофимов М.М.</p>
+  <p>+7 936 ***** 67</p>
+</footer>
+
+</body>
+</html>

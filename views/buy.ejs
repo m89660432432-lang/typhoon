@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Оформление заказа — Typhoon</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+<header class="header">
+  <h1><a href="/">Typhoon</a></h1>
+</header>
+
+<main class="order-container">
+  <h2>Оформление заказа</h2>
+
+  <div class="order-card">
+    <img src="<%= photo.image_url %>" alt="<%= photo.title %>">
+    <h3><%= photo.title %></h3>
+    <p>Цена: <strong><%= photo.price %> ₽</strong></p>
+  </div>
+
+  <form method="POST" class="order-form">
+    <input type="text" name="fullname" placeholder="ФИО" required>
+    <input type="text" name="phone" placeholder="Телефон" required>
+    <input type="text" name="address" placeholder="Адрес доставки" required>
+    <button type="submit">Оформить заказ</button>
+  </form>
+</main>
+
+<footer class="footer">
+  <p>Typhoon ©</p>
+  <p>Трофимов М.М.</p>
+  <p>+7 936 ***** 67</p>
+</footer>
+
+</body>
+</html>
