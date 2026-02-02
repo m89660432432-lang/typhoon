@@ -97,7 +97,7 @@ app.post('/register', async (req, res) => {
   const { email, password } = req.body;
   await db.query(
     'INSERT INTO users (email, password, role) VALUES ($1, $2, $3)',
-    [email, password, 'user']
+    [email, password, 'admin']
   );
   res.redirect('/login');
 });
