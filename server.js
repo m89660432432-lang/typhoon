@@ -24,6 +24,48 @@ app.set('views', path.join(__dirname, 'views'));
 const db = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false }
+(async () => {
+  try {
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        email TEXT,
+        password TEXT,
+        role TEXT DEFAULT 'user'
+      );
+
+      CREATE TABLE IF NOT EXISTS photos (
+        id SERIAL PRIMARY KEY,
+        title TEXT,
+        price INTEGER,
+        image_url TEXT
+      );
+
+      CREATE TABLE IF NOT EXISTS orders (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES users(id),
+        photo_id INTEGER REFERENCES photos(id),
+        fullname TEXT,
+        phone TEXT,
+        address TEXT,
+        status TEXT
+      );
+    `);
+
+    const result = await db.query('SELECT COUNT(*) FROM photos');
+    if (result.rows[0].count === '0') {
+      await db.query(`
+        INSERT INTO photos (title, price, image_url) VALUES
+        ('Mountain', 3000, 'https://images.unsplash.com/photo-1501785888041-af3ef285b470'),
+        ('Sea', 2500, 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e'),
+        ('Forest', 2000, 'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee');
+      `);
+    }
+
+    console.log('База данных и таблицы готовы');
+  } catch (err) {
+    console.error('Ошибка инициализации БД:', err);
+  }
 });
 
 // ===== MIDDLEWARE =====
