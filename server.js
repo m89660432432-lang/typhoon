@@ -5,7 +5,7 @@ const { Pool } = require('pg');
 
 const app = express();
 
-// ===== НАСТРОЙКИ =====
+/* ===== НАСТРОЙКИ ===== */
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
@@ -20,11 +20,14 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
-// ===== БАЗА ДАННЫХ (PostgreSQL для Render) =====
+/* ===== БАЗА ДАННЫХ ===== */
 const db = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false }
-(async () => {
+});
+
+/* ===== ИНИЦИАЛИЗАЦИЯ БД ===== */
+async function initDB() {
   try {
     await db.query(`
       CREATE TABLE IF NOT EXISTS users (
@@ -52,8 +55,8 @@ const db = new Pool({
       );
     `);
 
-    const result = await db.query('SELECT COUNT(*) FROM photos');
-    if (result.rows[0].count === '0') {
+    const { rows } = await db.query('SELECT COUNT(*) FROM photos');
+    if (rows[0].count === '0') {
       await db.query(`
         INSERT INTO photos (title, price, image_url) VALUES
         ('Mountain', 3000, 'https://images.unsplash.com/photo-1501785888041-af3ef285b470'),
@@ -62,13 +65,15 @@ const db = new Pool({
       `);
     }
 
-    console.log('База данных и таблицы готовы');
+    console.log('База данных готова');
   } catch (err) {
-    console.error('Ошибка инициализации БД:', err);
+    console.error('Ошибка БД:', err);
   }
-});
+}
 
-// ===== MIDDLEWARE =====
+initDB();
+
+/* ===== MIDDLEWARE ===== */
 function isAuth(req, res, next) {
   if (req.session.user) return next();
   res.redirect('/login');
@@ -79,13 +84,12 @@ function isAdmin(req, res, next) {
   res.send('Доступ запрещён');
 }
 
-// ===== ГЛАВНАЯ =====
+/* ===== РОУТЫ ===== */
 app.get('/', async (req, res) => {
   const { rows: photos } = await db.query('SELECT * FROM photos');
   res.render('index', { user: req.session.user, photos });
 });
 
-// ===== АВТОРИЗАЦИЯ =====
 app.get('/register', (req, res) => res.render('register'));
 app.get('/login', (req, res) => res.render('login'));
 
@@ -105,7 +109,7 @@ app.post('/login', async (req, res) => {
     [email, password]
   );
 
-  if (rows.length > 0) {
+  if (rows.length) {
     req.session.user = rows[0];
     res.redirect('/');
   } else {
@@ -117,7 +121,6 @@ app.get('/logout', (req, res) => {
   req.session.destroy(() => res.redirect('/'));
 });
 
-// ===== ПОКУПКА =====
 app.get('/buy/:id', isAuth, async (req, res) => {
   const { rows } = await db.query('SELECT * FROM photos WHERE id=$1', [req.params.id]);
   res.render('buy', { photo: rows[0] });
@@ -133,7 +136,6 @@ app.post('/buy/:id', isAuth, async (req, res) => {
   res.redirect('/profile');
 });
 
-// ===== ПРОФИЛЬ =====
 app.get('/profile', isAuth, async (req, res) => {
   const { rows: orders } = await db.query(
     `SELECT orders.*, photos.title
@@ -153,18 +155,9 @@ app.get('/cancel/:id', isAuth, async (req, res) => {
   res.redirect('/profile');
 });
 
-// ===== АДМИН =====
 app.get('/admin', isAdmin, async (req, res) => {
   const { rows: orders } = await db.query('SELECT * FROM orders');
   res.render('admin', { orders });
-});
-
-app.post('/admin/close/:id', isAdmin, async (req, res) => {
-  await db.query(
-    'UPDATE orders SET status=\'closed\' WHERE id=$1',
-    [req.params.id]
-  );
-  res.redirect('/admin');
 });
 
 app.post('/admin/add-photo', isAdmin, async (req, res) => {
@@ -176,6 +169,6 @@ app.post('/admin/add-photo', isAdmin, async (req, res) => {
   res.redirect('/admin');
 });
 
-// ===== ЗАПУСК =====
+/* ===== СТАРТ ===== */
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log('Typhoon запущен'));
